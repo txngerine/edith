@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import 'privacy_screen.dart';
@@ -29,10 +30,7 @@ class SettingsScreen extends StatelessWidget {
           NavRow(
             icon: Icons.privacy_tip_outlined,
             title: 'Privacy',
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const PrivacyScreen()),
-            ),
+            onTap: () => Get.to(() => const PrivacyScreen()),
           ),
           const SectionHeader('Security'),
           NavRow(
@@ -50,29 +48,20 @@ class SettingsScreen extends StatelessWidget {
             icon: Icons.shield_outlined,
             title: 'Data Purity',
             trailing: '98%',
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const DataPurityScreen()),
-            ),
+            onTap: () => Get.to(() => const DataPurityScreen()),
           ),
           NavRow(
             icon: Icons.storage_outlined,
             title: 'Storage Health',
             trailing: 'Good >',
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const StorageHealthScreen()),
-            ),
+            onTap: () => Get.to(() => const StorageHealthScreen()),
           ),
           const SectionHeader('Danger Zone'),
           NavRow(
             icon: Icons.warning_amber_outlined,
             title: 'Emergency Wipe',
             iconColor: EdithColors.danger,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const EmergencyWipeScreen()),
-            ),
+            onTap: () => Get.to(() => const EmergencyWipeScreen()),
           ),
           const SectionHeader('About'),
           NavRow(
@@ -149,7 +138,7 @@ class SettingsScreen extends StatelessWidget {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Get.back(),
             child: const Text('CLOSE',
                 style: TextStyle(color: EdithColors.accent, fontFamily: 'SpaceMono')),
           ),

@@ -1,68 +1,19 @@
-import 'dart:developer' as developer;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
-import '../services/supabase_service.dart';
+import '../controllers/vault_controller.dart';
 
-class VaultScreen extends StatefulWidget {
+class VaultScreen extends StatelessWidget {
   const VaultScreen({super.key});
 
-  @override
-  State<VaultScreen> createState() => _VaultScreenState();
-}
-
-class _VaultScreenState extends State<VaultScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  final _tabs = ['Photos', 'Videos', 'Documents'];
-  List<Map<String, dynamic>> _items = [];
-  bool _isLoading = false;
-
-
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-    _tabController.addListener(_onTabChanged);
-    _loadItems('photo');
-  }
-
-  void _onTabChanged() {
-    final types = ['photo', 'video', 'document'];
-    _loadItems(types[_tabController.index]);
-  }
-
-  Future<void> _loadItems(String type) async {
-    developer.log('[VaultScreen] Loading vault items for type: $type',
-        name: 'EDITH');
-    setState(() => _isLoading = true);
-    try {
-      final data = await SupabaseService.getVaultItems(type);
-      developer.log('[VaultScreen] Loaded ${data.length} vault items',
-          name: 'EDITH');
-      if (mounted) {
-        setState(() {
-          _items = data;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      developer.log('[VaultScreen] Failed to load vault items: $e',
-          name: 'EDITH');
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
+  static const _tabs = ['Photos', 'Videos', 'Documents'];
 
   @override
   Widget build(BuildContext context) {
+    final controller = Get.put(VaultController());
+
     return EdithScaffold(
       title: 'Vault',
       actions: [
@@ -74,11 +25,11 @@ class _VaultScreenState extends State<VaultScreen>
       ],
       body: Column(
         children: [
-          // Tab bar
+          // Tab bar — driven by controller's TabController
           Container(
             color: EdithColors.surface,
             child: TabBar(
-              controller: _tabController,
+              controller: controller.tabController,
               indicatorColor: EdithColors.accent,
               indicatorWeight: 2,
               labelColor: EdithColors.accent,
@@ -94,23 +45,73 @@ class _VaultScreenState extends State<VaultScreen>
           ),
           // Grid
           Expanded(
-            child: _isLoading
-                ? const Center(
-                    child: CircularProgressIndicator(color: EdithColors.accent))
-                : GridView.builder(
-                    padding: const EdgeInsets.all(2),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3,
-                      crossAxisSpacing: 2,
-                      mainAxisSpacing: 2,
+            child: Obx(() {
+              if (controller.rxIsLoading.value) {
+                return const Center(
+                    child: CircularProgressIndicator(
+                        color: EdithColors.accent));
+              }
+
+              if (controller.rxError.value != null) {
+                return Center(
+                  child: GestureDetector(
+                    onTap: controller.retry,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.wifi_off_outlined,
+                            color: EdithColors.textDim, size: 48),
+                        const SizedBox(height: 16),
+                        Text(
+                          controller.rxError.value!,
+                          style: const TextStyle(
+                            color: EdithColors.textSecondary,
+                            fontSize: 12,
+                            fontFamily: 'SpaceMono',
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
                     ),
-                    itemCount: _items.length,
-                    itemBuilder: (ctx, i) {
-                      final item = _items[i];
-                      return _VaultGridItem(item: item);
-                    },
                   ),
+                );
+              }
+
+              if (controller.rxItems.isEmpty) {
+                return const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.lock_outline,
+                          color: EdithColors.textDim, size: 48),
+                      SizedBox(height: 16),
+                      Text(
+                        'VAULT IS EMPTY',
+                        style: TextStyle(
+                          color: EdithColors.textSecondary,
+                          fontSize: 12,
+                          letterSpacing: 2,
+                          fontFamily: 'SpaceMono',
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              return GridView.builder(
+                padding: const EdgeInsets.all(2),
+                gridDelegate:
+                    const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  crossAxisSpacing: 2,
+                  mainAxisSpacing: 2,
+                ),
+                itemCount: controller.rxItems.length,
+                itemBuilder: (ctx, i) =>
+                    _VaultGridItem(item: controller.rxItems[i]),
+              );
+            }),
           ),
           // Vault protected badge
           Container(
@@ -152,6 +153,7 @@ class _VaultGridItem extends StatelessWidget {
     final hasImage = item['thumbnail_url'] != null;
 
     return Stack(
+      fit: StackFit.expand,
       children: [
         Container(
           color: EdithColors.card,
@@ -199,7 +201,10 @@ class _VaultGridItem extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.bottomCenter,
                 end: Alignment.topCenter,
-                colors: [EdithColors.bg.withValues(alpha: 0.8), Colors.transparent],
+                colors: [
+                  EdithColors.bg.withValues(alpha: 0.8),
+                  Colors.transparent
+                ],
               ),
             ),
             child: Text(

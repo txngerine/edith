@@ -1,57 +1,19 @@
-import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:get/get.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
-import '../services/supabase_service.dart';
+import '../controllers/messages_controller.dart';
 import 'chat_screen.dart';
 import 'identity_dashboard_screen.dart';
 
-class MessagesListScreen extends StatefulWidget {
+class MessagesListScreen extends StatelessWidget {
   const MessagesListScreen({super.key});
 
   @override
-  State<MessagesListScreen> createState() => _MessagesListScreenState();
-}
-
-class _MessagesListScreenState extends State<MessagesListScreen> {
-  List<Map<String, dynamic>> _channels = [];
-  bool _isLoading = true;
-  String _identityHandle = 'Loading...';
-
-
-
-  @override
-  void initState() {
-    super.initState();
-    _loadChannels();
-  }
-
-  Future<void> _loadChannels() async {
-    developer.log('[MessagesListScreen] Loading channels', name: 'EDITH');
-    try {
-      final real = await SupabaseService.getChannels();
-      final identity = await SupabaseService.getCurrentIdentity();
-      developer.log('[MessagesListScreen] Loaded ${real.length} channels', name: 'EDITH');
-      if (mounted) {
-        setState(() {
-          _channels = real;
-          _isLoading = false;
-          if (identity != null) {
-            _identityHandle = identity['handle'] ?? 'Unknown';
-          }
-        });
-      }
-    } catch (e) {
-      developer.log('[MessagesListScreen] Failed to load channels: $e', name: 'EDITH');
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final controller = Get.put(MessagesController());
+    
     return EdithScaffold(
       showAppBar: false,
       body: SafeArea(
@@ -88,10 +50,7 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
             ),
             // Identity banner
             GestureDetector(
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const IdentityDashboardScreen()),
-              ),
+              onTap: () => Get.to(() => const IdentityDashboardScreen()),
               child: Container(
                 margin: const EdgeInsets.all(12),
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -104,8 +63,8 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
                   children: [
                     const Icon(Icons.person_outline, color: EdithColors.accent, size: 16),
                     const SizedBox(width: 8),
-                    Text(
-                      _identityHandle,
+                    Obx(() => Text(
+                      controller.rxIdentityHandle.value,
                       style: const TextStyle(
                         color: EdithColors.accent,
                         fontSize: 12,
@@ -113,7 +72,7 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
                         fontFamily: 'SpaceMono',
                         letterSpacing: 2,
                       ),
-                    ),
+                    )),
                     const SizedBox(width: 8),
                     const Text('·',
                         style: TextStyle(color: EdithColors.textDim, fontSize: 12)),
@@ -134,27 +93,24 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
             ),
             // Channel list
             Expanded(
-              child: _isLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(color: EdithColors.accent))
-                  : ListView.builder(
-                      itemCount: _channels.length,
-                      itemBuilder: (ctx, i) {
-                        final ch = _channels[i];
-                        return _ChannelTile(
-                          channel: ch,
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => ChatScreen(
-                                channelId: ch['id'] ?? 'demo',
-                                channelName: ch['name'] ?? 'Channel',
-                              ),
-                            ),
-                          ),
+              child: Obx(() {
+                if (controller.rxIsLoading.value) {
+                  return const Center(child: CircularProgressIndicator(color: EdithColors.accent));
+                }
+                return ListView.builder(
+                  itemCount: controller.rxChannels.length,
+                  itemBuilder: (ctx, i) {
+                    final ch = controller.rxChannels[i];
+                    return _ChannelTile(
+                      channel: ch,
+                      onTap: () => Get.to(() => ChatScreen(
+                        channelId: ch['id'] ?? 'demo',
+                        channelName: ch['name'] ?? 'Channel',
+                      )),
                         ).animate().fadeIn(delay: Duration(milliseconds: i * 60));
                       },
-                    ),
+                    );
+              }),
             ),
           ],
         ),

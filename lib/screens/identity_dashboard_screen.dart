@@ -1,68 +1,12 @@
-import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'dart:async';
+import 'package:get/get.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
-import '../services/supabase_service.dart';
+import '../controllers/identity_controller.dart';
 
-class IdentityDashboardScreen extends StatefulWidget {
+class IdentityDashboardScreen extends StatelessWidget {
   const IdentityDashboardScreen({super.key});
-
-  @override
-  State<IdentityDashboardScreen> createState() => _IdentityDashboardScreenState();
-}
-
-class _IdentityDashboardScreenState extends State<IdentityDashboardScreen> {
-  String _handle = 'Loading...';
-  Duration _timeLeft = const Duration(hours: 24);
-  Timer? _timer;
-  int _activeChannels = 0;
-  int _mediaTransmissions = 0;
-  double _dataPurity = 0;
-  String _storageHealth = 'Unknown';
-
-  @override
-  void initState() {
-    super.initState();
-    _loadIdentity();
-    _startTimer();
-  }
-
-  void _startTimer() {
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) return;
-      setState(() {
-        if (_timeLeft.inSeconds > 0) {
-          _timeLeft = _timeLeft - const Duration(seconds: 1);
-        } else {
-          _timeLeft = const Duration(hours: 24);
-        }
-      });
-    });
-  }
-
-  Future<void> _loadIdentity() async {
-    developer.log('[IdentityDashboard] Loading identity and stats', name: 'EDITH');
-    try {
-      final data = await SupabaseService.getCurrentIdentity();
-      final stats = await SupabaseService.getUserStats();
-      developer.log('[IdentityDashboard] Identity loaded: $data', name: 'EDITH');
-      if (mounted) {
-        setState(() {
-          if (data != null) {
-            _handle = data['handle'] ?? 'Unknown';
-          }
-          _activeChannels = stats['messages_destroyed'] ?? 0; // Or other stat
-          _mediaTransmissions = stats['media_expired'] ?? 0;
-          _dataPurity = (stats['data_purity'] ?? 0).toDouble();
-          _storageHealth = 'Good';
-        });
-      }
-    } catch (e) {
-      developer.log('[IdentityDashboard] Failed to load identity: $e', name: 'EDITH');
-    }
-  }
 
   String _formatDuration(Duration d) {
     final h = d.inHours.toString().padLeft(2, '0');
@@ -72,13 +16,8 @@ class _IdentityDashboardScreenState extends State<IdentityDashboardScreen> {
   }
 
   @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final controller = Get.put(IdentityController());
     return EdithScaffold(
       showAppBar: false,
       body: SafeArea(
@@ -114,8 +53,8 @@ class _IdentityDashboardScreenState extends State<IdentityDashboardScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    Text(
-                      _handle,
+                    Obx(() => Text(
+                      controller.rxHandle.value,
                       style: const TextStyle(
                         color: EdithColors.textPrimary,
                         fontSize: 32,
@@ -123,7 +62,7 @@ class _IdentityDashboardScreenState extends State<IdentityDashboardScreen> {
                         letterSpacing: 4,
                         fontFamily: 'SpaceMono',
                       ),
-                    ).animate().fadeIn().scale(),
+                    ).animate().fadeIn().scale()),
                     const SizedBox(height: 8),
                     Text(
                       'Rotates in',
@@ -134,8 +73,8 @@ class _IdentityDashboardScreenState extends State<IdentityDashboardScreen> {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    Text(
-                      _formatDuration(_timeLeft),
+                    Obx(() => Text(
+                      _formatDuration(controller.rxTimeLeft.value),
                       style: const TextStyle(
                         color: EdithColors.accent,
                         fontSize: 28,
@@ -143,15 +82,15 @@ class _IdentityDashboardScreenState extends State<IdentityDashboardScreen> {
                         fontFamily: 'SpaceMono',
                         letterSpacing: 4,
                       ),
-                    ),
+                    )),
                     const SizedBox(height: 40),
                     // Stats grid
-                    Row(
+                    Obx(() => Row(
                       children: [
                         Expanded(
                           child: _StatCard(
                             icon: Icons.wifi_outlined,
-                            value: _activeChannels.toString(),
+                            value: controller.rxActiveChannels.value.toString(),
                             label: 'Active\nChannels',
                           ),
                         ),
@@ -159,19 +98,19 @@ class _IdentityDashboardScreenState extends State<IdentityDashboardScreen> {
                         Expanded(
                           child: _StatCard(
                             icon: Icons.send_outlined,
-                            value: _mediaTransmissions.toString(),
+                            value: controller.rxMediaTransmissions.value.toString(),
                             label: 'Media\nTransmissions',
                           ),
                         ),
                       ],
-                    ),
+                    )),
                     const SizedBox(height: 12),
-                    Row(
+                    Obx(() => Row(
                       children: [
                         Expanded(
                           child: _StatCard(
                             icon: Icons.shield_outlined,
-                            value: '${_dataPurity.toInt()}%',
+                            value: '${controller.rxDataPurity.value.toInt()}%',
                             label: 'Data\nPurity',
                           ),
                         ),
@@ -179,13 +118,13 @@ class _IdentityDashboardScreenState extends State<IdentityDashboardScreen> {
                         Expanded(
                           child: _StatCard(
                             icon: Icons.storage_outlined,
-                            value: _storageHealth,
+                            value: controller.rxStorageHealth.value,
                             label: 'Storage\nHealth',
                             valueColor: EdithColors.accent,
                           ),
                         ),
                       ],
-                    ),
+                    )),
                   ],
                 ),
               ),

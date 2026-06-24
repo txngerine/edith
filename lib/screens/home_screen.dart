@@ -1,21 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import '../widgets/common_widgets.dart';
+import '../controllers/home_controller.dart';
 import 'messages_list_screen.dart';
 import 'vault_screen.dart';
 import 'settings_screen.dart';
 import 'scan_screen.dart';
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
-  @override
-  State<HomeScreen> createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends State<HomeScreen> {
-  int _navIndex = 0;
-
-  final _screens = const [
+  static const _screens = [
     MessagesListScreen(),
     ScanScreen(),
     VaultScreen(),
@@ -24,12 +19,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: _screens[_navIndex],
-      bottomNavigationBar: EdithBottomNav(
-        currentIndex: _navIndex,
-        onTap: (i) => setState(() => _navIndex = i),
-      ),
-    );
+    final controller = Get.put(HomeController());
+
+    return Obx(() => Scaffold(
+          body: _screens[controller.navIndex.value],
+          bottomNavigationBar: EdithBottomNav(
+            currentIndex: controller.navIndex.value,
+            onTap: controller.setTab,
+          ),
+        ));
   }
 }

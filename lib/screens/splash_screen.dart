@@ -1,6 +1,7 @@
 import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:get/get.dart';
 import '../theme/app_theme.dart';
 import 'onboarding_screen.dart';
 import 'home_screen.dart';
@@ -39,14 +40,10 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     developer.log('[SplashScreen] Session user: ${user?.id ?? "none"}', name: 'EDITH');
     if (!mounted) return;
     final isLoggedIn = user != null;
-    Navigator.of(context).pushReplacement(
-      PageRouteBuilder(
-        pageBuilder: (_, __, ___) =>
-            isLoggedIn ? const HomeScreen() : const OnboardingScreen(),
-        transitionDuration: const Duration(milliseconds: 600),
-        transitionsBuilder: (_, anim, __, child) =>
-            FadeTransition(opacity: anim, child: child),
-      ),
+    Get.off(
+      () => isLoggedIn ? const HomeScreen() : const OnboardingScreen(),
+      transition: Transition.fadeIn,
+      duration: const Duration(milliseconds: 600),
     );
   }
 

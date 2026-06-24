@@ -1,5 +1,6 @@
 import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import '../services/supabase_service.dart';
@@ -23,20 +24,22 @@ class _EmergencyWipeScreenState extends State<EmergencyWipeScreen> {
     developer.log('[EmergencyWipe] Starting emergency wipe', name: 'EDITH');
     setState(() => _isWiping = true);
     try {
+      // emergencyWipe() now handles signOut() internally
       await SupabaseService.emergencyWipe();
-      developer.log('[EmergencyWipe] Wipe complete — signing out', name: 'EDITH');
-      await SupabaseService.signOut();
-      developer.log('[EmergencyWipe] Signed out — navigating to onboarding', name: 'EDITH');
-      if (mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const OnboardingScreen()),
-          (_) => false,
-        );
-      }
+      developer.log('[EmergencyWipe] Wipe + sign-out complete — navigating to onboarding', name: 'EDITH');
+      // Clear entire navigation stack — user must re-onboard
+      Get.offAll(() => const OnboardingScreen(),
+          transition: Transition.fadeIn,
+          duration: const Duration(milliseconds: 600));
     } catch (e) {
-      setState(() => _isWiping = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: EdithColors.danger),
+      if (mounted) setState(() => _isWiping = false);
+      // Use Get.snackbar to avoid BuildContext-across-async-gap warning
+      Get.snackbar(
+        'Wipe Failed',
+        e.toString(),
+        backgroundColor: EdithColors.danger,
+        colorText: EdithColors.textPrimary,
+        snackPosition: SnackPosition.BOTTOM,
       );
     }
   }
@@ -49,7 +52,7 @@ class _EmergencyWipeScreenState extends State<EmergencyWipeScreen> {
         backgroundColor: EdithColors.bg,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: EdithColors.textPrimary),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Get.back(),
         ),
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
@@ -106,7 +109,7 @@ class _EmergencyWipeScreenState extends State<EmergencyWipeScreen> {
             EdithButton(
               label: 'Cancel',
               isOutlined: true,
-              onTap: () => Navigator.pop(context),
+              onTap: () => Get.back(),
             ),
           ],
         ),
@@ -143,13 +146,13 @@ class _EmergencyWipeScreenState extends State<EmergencyWipeScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Get.back(),
             child: const Text('CANCEL',
                 style: TextStyle(color: EdithColors.textSecondary, fontFamily: 'SpaceMono')),
           ),
           TextButton(
             onPressed: () {
-              Navigator.pop(context);
+              Get.back();
               _wipeEverything();
             },
             child: const Text('CONFIRM WIPE',

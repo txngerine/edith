@@ -150,10 +150,21 @@ class SupabaseService {
     try {
       final res = await client
           .from('channel_members')
-          .select('channel_id, channels(id, name, created_at)')
+          .select('channel_id, channels(id, name, type, created_at)')
           .eq('user_id', userId!);
-      final channels = List<Map<String, dynamic>>.from(res);
-      _debugLog('getChannels', 'Channels fetched',
+      // Flatten the nested join so the UI gets flat fields directly
+      final channels = List<Map<String, dynamic>>.from(res).map((row) {
+        final ch = (row['channels'] as Map<String, dynamic>?) ?? {};
+        return <String, dynamic>{
+          'id': ch['id'] ?? row['channel_id'],
+          'name': ch['name'] ?? 'Unnamed',
+          'type': ch['type'] ?? 'private',
+          'last_message': '',
+          'time': '',
+          'unread': 0,
+        };
+      }).toList();
+      _debugLog('getChannels', 'Channels fetched (flattened)',
           result: '${channels.length} channels');
       return channels;
     } catch (e) {
@@ -413,11 +424,17 @@ class SupabaseService {
       return;
     }
     try {
+      // Delete all user data from all tables
       await client.from('vault_items').delete().eq('user_id', userId!);
       await client.from('messages').delete().eq('sender_id', userId!);
       await client.from('identities').delete().eq('user_id', userId!);
       await client.from('invite_tokens').delete().eq('created_by', userId!);
-      _debugLog('emergencyWipe', 'Emergency wipe completed');
+      await client.from('channel_members').delete().eq('user_id', userId!);
+      await client.from('user_stats').delete().eq('user_id', userId!);
+      _debugLog('emergencyWipe', 'All data deleted — signing out session');
+      // Sign out AFTER data deletion so userId is still valid during deletes
+      await client.auth.signOut();
+      _debugLog('emergencyWipe', 'Emergency wipe + sign-out completed');
     } catch (e) {
       _debugLog('emergencyWipe', 'Emergency wipe failed', error: e);
       rethrow;

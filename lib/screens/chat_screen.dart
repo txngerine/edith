@@ -1,14 +1,12 @@
-import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'dart:async';
+import 'package:get/get.dart';
 import '../theme/app_theme.dart';
-import '../services/supabase_service.dart';
+import '../controllers/chat_controller.dart';
 import 'media_send_screen.dart';
 import 'burn_chat_screen.dart';
 
-class ChatScreen extends StatefulWidget {
+class ChatScreen extends StatelessWidget {
   final String channelId;
   final String channelName;
 
@@ -16,124 +14,25 @@ class ChatScreen extends StatefulWidget {
       {super.key, required this.channelId, required this.channelName});
 
   @override
-  State<ChatScreen> createState() => _ChatScreenState();
-}
-
-class _ChatScreenState extends State<ChatScreen> {
-  final _controller = TextEditingController();
-  final _scrollController = ScrollController();
-  List<Map<String, dynamic>> _messages = [];
-  RealtimeChannel? _subscription;
-
-
-
-  @override
-  void initState() {
-    super.initState();
-    _loadMessages();
-    _subscribeToMessages();
-  }
-
-  Future<void> _loadMessages() async {
-    developer.log('[ChatScreen] Loading messages for channel: ${widget.channelId}', name: 'EDITH');
-    try {
-      final msgs = await SupabaseService.getMessages(widget.channelId);
-      developer.log('[ChatScreen] Loaded ${msgs.length} messages', name: 'EDITH');
-      if (mounted) {
-        setState(() => _messages = msgs
-            .map((m) => {
-                  'sender':
-                      m['sender_id'] == SupabaseService.userId ? 'me' : 'other',
-                  'handle': m['sender_id'] == SupabaseService.userId
-                      ? 'YOU'
-                      : 'CONTACT',
-                  'content': m['content'] ?? '',
-                  'time': m['created_at'] ?? '',
-                })
-            .toList());
-      }
-    } catch (e) {
-      developer.log('[ChatScreen] Failed to load messages: $e', name: 'EDITH');
-    }
-  }
-
-  void _subscribeToMessages() {
-    developer.log('[ChatScreen] Subscribing to realtime messages for: ${widget.channelId}', name: 'EDITH');
-    _subscription = SupabaseService.subscribeToMessages(
-      widget.channelId,
-      (msg) {
-        developer.log('[ChatScreen] New message via realtime', name: 'EDITH');
-        if (!mounted) return;
-        setState(() => _messages.add({
-              'sender':
-                  msg['sender_id'] == SupabaseService.userId ? 'me' : 'other',
-              'handle': 'CONTACT',
-              'content': msg['content'] ?? '',
-              'time': DateTime.now().toString(),
-            }));
-        _scrollToBottom();
-      },
-    );
-  }
-
-  void _scrollToBottom() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
-    });
-  }
-
-  Future<void> _sendMessage() async {
-    final text = _controller.text.trim();
-    if (text.isEmpty) return;
-    _controller.clear();
-    setState(() => _messages.add({
-          'sender': 'me',
-          'handle': 'YOU',
-          'content': text,
-          'time': TimeOfDay.now().format(context),
-        }));
-    _scrollToBottom();
-    try {
-      await SupabaseService.sendMessage(
-        channelId: widget.channelId,
-        content: text,
-        expiresInMinutes: 1440,
-      );
-      developer.log('[ChatScreen] Message sent', name: 'EDITH');
-    } catch (e) {
-      developer.log('[ChatScreen] Failed to send message: $e', name: 'EDITH');
-    }
-  }
-
-  @override
-  void dispose() {
-    _subscription?.unsubscribe();
-    _controller.dispose();
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final controller = Get.put(
+      ChatController(channelId: channelId),
+      tag: channelId,
+    );
+
     return Scaffold(
       backgroundColor: EdithColors.bg,
       appBar: AppBar(
         backgroundColor: EdithColors.bg,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: EdithColors.textPrimary),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Get.back(),
         ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              widget.channelName,
+              channelName,
               style: const TextStyle(
                 color: EdithColors.textPrimary,
                 fontSize: 13,
@@ -142,7 +41,7 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             ),
             const Text(
-              'FALCON_19 · Rotates in 12h 42m',
+              'End-to-end encrypted · Auto-expires',
               style: TextStyle(
                 color: EdithColors.textDim,
                 fontSize: 10,
@@ -163,11 +62,7 @@ class _ChatScreenState extends State<ChatScreen> {
             color: EdithColors.card,
             onSelected: (val) {
               if (val == 'burn') {
-                Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) =>
-                            BurnChatScreen(channelId: widget.channelId)));
+                Get.to(() => BurnChatScreen(channelId: channelId));
               }
             },
             itemBuilder: (_) => [
@@ -190,42 +85,22 @@ class _ChatScreenState extends State<ChatScreen> {
       body: Column(
         children: [
           Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
+            child: Obx(() => ListView.builder(
+              controller: controller.scrollController,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              itemCount: _messages.length,
+              itemCount: controller.rxMessages.length,
               itemBuilder: (ctx, i) {
-                final msg = _messages[i];
+                final msg = controller.rxMessages[i];
                 final isMe = msg['sender'] == 'me';
-                final showHeader =
-                    i == 0 || _messages[i - 1]['sender'] != msg['sender'];
+                final showHeader = i == 0 ||
+                    controller.rxMessages[i - 1]['sender'] != msg['sender'];
                 return _MessageBubble(
                   message: msg,
                   isMe: isMe,
                   showHeader: showHeader,
                 ).animate().fadeIn(delay: Duration(milliseconds: i * 30));
               },
-            ),
-          ),
-          // "New messages" divider if applicable
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            child: Row(
-              children: [
-                const Expanded(child: Divider(color: EdithColors.accentDim)),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 8),
-                  child: Text(
-                    'New messages',
-                    style: TextStyle(
-                        color: EdithColors.accentDim,
-                        fontSize: 10,
-                        fontFamily: 'SpaceMono'),
-                  ),
-                ),
-                const Expanded(child: Divider(color: EdithColors.accentDim)),
-              ],
-            ),
+            )),
           ),
           // Input bar
           Container(
@@ -241,12 +116,8 @@ class _ChatScreenState extends State<ChatScreen> {
                   IconButton(
                     icon: const Icon(Icons.attach_file,
                         color: EdithColors.textSecondary, size: 20),
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) =>
-                              MediaSendScreen(channelId: widget.channelId)),
-                    ),
+                    onPressed: () => Get.to(
+                        () => MediaSendScreen(channelId: channelId)),
                   ),
                   IconButton(
                     icon: const Icon(Icons.photo_camera_outlined,
@@ -263,7 +134,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         border: Border.all(color: EdithColors.border),
                       ),
                       child: TextField(
-                        controller: _controller,
+                        controller: controller.textController,
                         style: const TextStyle(
                           color: EdithColors.textPrimary,
                           fontSize: 13,
@@ -280,14 +151,14 @@ class _ChatScreenState extends State<ChatScreen> {
                           isDense: true,
                           contentPadding: EdgeInsets.zero,
                         ),
-                        onSubmitted: (_) => _sendMessage(),
+                        onSubmitted: (_) => controller.sendMessage(),
                       ),
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.mic_none,
-                        color: EdithColors.textSecondary, size: 20),
-                    onPressed: () {},
+                    icon: const Icon(Icons.send,
+                        color: EdithColors.accent, size: 20),
+                    onPressed: () => controller.sendMessage(),
                   ),
                 ],
               ),
@@ -341,33 +212,24 @@ class _MessageBubble extends StatelessWidget {
           ],
           Row(
             children: [
-              if (!isMe) ...[
-                const Text(
-                  '> ',
-                  style: TextStyle(
-                    color: EdithColors.textDim,
-                    fontSize: 12,
-                    fontFamily: 'SpaceMono',
-                  ),
-                ),
-              ] else ...[
-                const Text(
-                  '> ',
-                  style: TextStyle(
-                    color: EdithColors.textDim,
-                    fontSize: 12,
-                    fontFamily: 'SpaceMono',
-                  ),
-                ),
-              ],
               Text(
-                message['content'] ?? '',
+                '> ',
                 style: TextStyle(
-                  color: isMe
-                      ? EdithColors.textSecondary
-                      : EdithColors.textPrimary,
-                  fontSize: 13,
+                  color: isMe ? EdithColors.textDim : EdithColors.accent,
+                  fontSize: 12,
                   fontFamily: 'SpaceMono',
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  message['content'] ?? '',
+                  style: TextStyle(
+                    color: isMe
+                        ? EdithColors.textSecondary
+                        : EdithColors.textPrimary,
+                    fontSize: 13,
+                    fontFamily: 'SpaceMono',
+                  ),
                 ),
               ),
             ],

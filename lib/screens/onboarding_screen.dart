@@ -1,10 +1,10 @@
 import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:get/get.dart';
 import '../theme/app_theme.dart';
 import '../services/supabase_service.dart';
 import '../widgets/common_widgets.dart';
-import '../main.dart' as app;
 import 'home_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -79,14 +79,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _navigateToHome() {
-    Navigator.of(context).pushReplacement(
-      PageRouteBuilder(
-        pageBuilder: (_, __, ___) => const HomeScreen(),
-        transitionDuration: const Duration(milliseconds: 600),
-        transitionsBuilder: (_, anim, __, child) =>
-            FadeTransition(opacity: anim, child: child),
-      ),
-    );
+    Get.off(() => const HomeScreen(),
+        transition: Transition.fadeIn,
+        duration: const Duration(milliseconds: 600));
   }
 
   @override

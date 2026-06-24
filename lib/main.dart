@@ -2,6 +2,7 @@ import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:get/get.dart';
 import 'theme/app_theme.dart';
 import 'screens/splash_screen.dart';
 
@@ -49,7 +50,7 @@ class EdithApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return GetMaterialApp(
       title: 'EDITH',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
