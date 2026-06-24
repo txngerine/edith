@@ -194,6 +194,8 @@ class ScanScreen extends StatelessWidget {
             Container(
               color: Colors.white,
               padding: const EdgeInsets.all(8),
+              width: 216,
+              height: 216,
               child: QrImageView(
                 data: token,
                 version: QrVersions.auto,
